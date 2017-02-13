@@ -5,12 +5,12 @@
 #include "mandelbrot_frame.h"
 #include <windows.h>
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 3840
+#define HEIGHT 2160
 #define OFFSET_X 0
 #define OFFSET_Y 0
-#define ZOOMFACTOR 200
-#define MAX_ITERATIONS 1024
+#define ZOOMFACTOR 800
+#define MAX_ITERATIONS 4
 #define COLORTABLE_SIZE 1024 
 
 mandelbrot_color colortable2[COLORTABLE_SIZE];
