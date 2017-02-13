@@ -13,23 +13,6 @@
 
 int main(void)
 {
-	/*
-	cl_int err;
-	cl_uint numPlatforms;
-
-
-	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	if (CL_SUCCESS == err)
-		printf("\nDetected OpenCL platforms: %d\n", numPlatforms);
-	else
-		printf("\nError calling clGetPlatformIDs. Error code: %d\n", err);
-
-	getchar();
-
-	*/
-
-	//////////////////////////////////////////////////////////////////////////
-
 	cl_device_id device_id = NULL;
 	cl_context context = NULL;
 	cl_command_queue command_queue = NULL;
@@ -40,15 +23,20 @@ int main(void)
 	cl_uint ret_num_devices;
 	cl_uint ret_num_platforms;
 	cl_int ret;
+	cl_mem AonDevice = NULL;
+	cl_mem BonDevice = NULL;
+	cl_mem ConDevice = NULL;
 
-	char string[MEM_SIZE];
+	int A[3][3] = { { 0, 1, 2 },{ 3, 4, 5 },{ 6, 7, 8 } },
+		B[3][3] = { { 0, 1, 2 },{ 3, 4, 5 },{ 6, 7, 8 } },
+		C[3][3];
 
 	FILE *fp;
-	char fileName[] = "./hello.cl";
+	char fileName[] = "./addArray.cl";
 	char *source_str;
 	size_t source_size;
 
-	/* Load the source code containing the kernel*/
+	/* Load the source code containing the kernel */
 	fp = fopen(fileName, "r");
 	if (!fp) {
 		fprintf(stderr, "Failed to load kernel.\n");
@@ -58,40 +46,60 @@ int main(void)
 	source_size = fread(source_str, 1, MAX_SOURCE_SIZE, fp);
 	fclose(fp);
 
+	printf("loaded kernel");
 
 	/* Get Platform and Device Info */
 	ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
 	ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_DEFAULT, 1, &device_id, &ret_num_devices);
 
-	/* Create OpenCL context */
+	/* Create OpenCL Context */
 	context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
 
-	/* Create Command Queue */
+	/* Create command queue */
 	command_queue = clCreateCommandQueue(context, device_id, 0, &ret);
 
-	/* Create Memory Buffer */
-	memobj = clCreateBuffer(context, CL_MEM_READ_WRITE, MEM_SIZE * sizeof(char), NULL, &ret);
+	/* Allocate memory for arrays on the Compute Device */
+	AonDevice = clCreateBuffer(context, CL_MEM_READ_WRITE, 3 * 3 * sizeof(int), NULL, &ret);
+	BonDevice = clCreateBuffer(context, CL_MEM_READ_WRITE, 3 * 3 * sizeof(int), NULL, &ret);
+	ConDevice = clCreateBuffer(context, CL_MEM_READ_WRITE, 3 * 3 * sizeof(int), NULL, &ret);
 
-	/* Create Kernel Program from the source */
+	/* Copy arrays A and B from host memory to Compute Devive */
+	ret = clEnqueueWriteBuffer(command_queue, AonDevice, CL_TRUE, 0, 3 * 3 * sizeof(int), (void*)&A, 0, NULL, NULL);
+	ret = clEnqueueWriteBuffer(command_queue, BonDevice, CL_TRUE, 0, 3 * 3 * sizeof(int), (void*)&B, 0, NULL, NULL);
+
+	/* Create kernel program */
 	program = clCreateProgramWithSource(context, 1, (const char **)&source_str, (const size_t *)&source_size, &ret);
 
-	/* Build Kernel Program */
+	/* Compile the program Just In Time to GPU machine code */
 	ret = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
 
-	/* Create OpenCL Kernel */
-	kernel = clCreateKernel(program, "hello", &ret);
+	/* Create OpenCL kernel from the compiled program */
+	kernel = clCreateKernel(program, "addArray", &ret);
 
-	/* Set OpenCL Kernel Parameters */
-	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&memobj);
+	/* Set OpenCL kernel arguments */
+	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&AonDevice);
+	ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&BonDevice);
+	ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&ConDevice);
 
-	/* Execute OpenCL Kernel */
-	ret = clEnqueueTask(command_queue, kernel, 0, NULL, NULL);
+	/* Activate OpenCL kernel on the Compute Device */
+	size_t globalSize[] = { 3,3 };
+	size_t localSize[] = { 1,1 };
+	clEnqueueNDRangeKernel(	command_queue, 
+							kernel, 
+							2,           // it’s a 2-dimensional matrix 
+							NULL, 
+							globalSize,  // 3x3 work items globally
+							localSize,   // 1x1 work item per group 
+							0,
+							NULL,
+							NULL);
 
-	/* Copy results from the memory buffer */
-	ret = clEnqueueReadBuffer(command_queue, memobj, CL_TRUE, 0, MEM_SIZE * sizeof(char), string, 0, NULL, NULL);
+
+	/* Transfer result array C back to host */
+	ret = clEnqueueReadBuffer(command_queue, ConDevice, CL_TRUE, 0, 3 * 3 * sizeof(int), (void*)&C, 0, NULL, NULL);
 
 	/* Display Result */
-	puts(string);
+	//TODO
 
 	/* Finalization */
 	ret = clFlush(command_queue);
