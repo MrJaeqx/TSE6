@@ -25,7 +25,7 @@ mandelbrot_color colortable2[COLORTABLE_SIZE];
 
 void create_colortable() 
 {
-	// Initialize color table values
+	/* Initialize color table values */
 	for(unsigned int i = 0; i < COLORTABLE_SIZE; i++)
 	{
 		if (i < 64) {
@@ -56,7 +56,7 @@ void create_colortable()
 }
 
 int main() {
-	// Define GPU parameters
+	/* Define GPU parameters */
 	cl_device_id device_id = NULL;
 	cl_context context = NULL;
 	cl_command_queue command_queue = NULL;
@@ -72,35 +72,32 @@ int main() {
 	cl_mem dev_colortable = NULL;
 	cl_mem dev_params = NULL;
 
-	unsigned int params[7] = {WIDTH, HEIGHT, OFFSET_X, OFFSET_Y, ZOOMFACTOR, MAX_ITERATIONS, COLORTABLE_SIZE};
+	size_t infoSize;
+	unsigned int params[7] = {WIDTH, HEIGHT, OFFSET_X, OFFSET_Y, ZOOMFACTOR, MAX_ITERATIONS, COLORTABLE_SIZE};	
+	char* info;
 	char fileName[] = "./mandelbrot.cl";
 
-	// Create the colortable and fill it with colors
+	/* Create the colortable and fill it with colors */
 	create_colortable();
 
-	// Remove previous bitmap
+	/* Remove previous bitmap */
 	remove("fractal_output.bmp");
 
-	// Create an empty image
+	/* Create an empty image */
 	bitmap_image image(WIDTH, HEIGHT);
 	mandelbrot_color * p = (mandelbrot_color *)image.data();
 
 	/* Get Platform and Device Info */
-	size_t infoSize;
-	char* info;
-
 	ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
+	checkError(ret, "Couldn't get platform ids");
 	ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_DEFAULT, 1, &device_id, &ret_num_devices);
+	checkError(ret, "Couldn't get device ids");
 	ret = clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, 0, NULL, &infoSize);
-	checkError(ret, "Couldn't get platform and device info");
-
+	checkError(ret, "Couldn't get platform info");
 	info = (char*)malloc(infoSize);
 	ret = clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, infoSize, info, NULL);
 	checkError(ret, "Couldn't get platform attribute value");
-
 	printf("Running on %s\n\n", info);
-
-	
 
 	/* Create OpenCL Context */
 	context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
@@ -118,8 +115,7 @@ int main() {
 	dev_colortable = clCreateBuffer(context, CL_MEM_READ_ONLY, COLORTABLE_SIZE * sizeof(mandelbrot_color), NULL, &ret);
 	checkError(ret, "Couldn't create colortable on device");
 
-
-	/* Copy arrays A and B from host memory to Compute Devive */
+	/* Copy arrays from host memory to Compute Devive */
 	ret = clEnqueueWriteBuffer(command_queue, dev_params, CL_TRUE, 0, 7 * sizeof(int), params, 0, NULL, NULL);
 	checkError(ret, "Couldn't write params on device");
 	ret = clEnqueueWriteBuffer(command_queue, dev_colortable, CL_TRUE, 0, COLORTABLE_SIZE * sizeof(mandelbrot_color), colortable2, 0, NULL, NULL);
@@ -142,7 +138,7 @@ int main() {
 	ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&dev_colortable);
 	checkError(ret, "Couldn't set arg dev_colortable");
 
-	// Get current time before calculating the fractal
+	/* Get current time before calculating the fractal */
 	LARGE_INTEGER freq, start;
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&start);
@@ -152,10 +148,10 @@ int main() {
 	size_t localSize[] = { 800 , 1 };
 	clEnqueueNDRangeKernel(command_queue,
 		kernel,
-		2,           // it’s a 2-dimensional matrix 
+		2,			// 2D matrix 
 		NULL,
-		globalSize,  // 3x3 work items globally
-		NULL,   // 3x3 work item per group 
+		globalSize,
+		NULL,		// local size (NULL = auto) 
 		0,
 		NULL,
 		NULL);
@@ -163,7 +159,7 @@ int main() {
 	/* Add blocking element */
 	clFinish(command_queue);
 
-	// Get current time after calculating the fractal
+	/* Get current time after calculating the fractal */
 	LARGE_INTEGER end;
 	QueryPerformanceCounter(&end);
 
@@ -185,14 +181,14 @@ int main() {
 	ret = clReleaseCommandQueue(command_queue);
 	ret = clReleaseContext(context);
 
-	// Print elapsed time
+	/* Print elapsed time */
 	printf("Elapsed time to calculate fractal: %f msec\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
 	printf("Press ENTER to continue...\n");
 
-	// Write image to file
+	/* Write image to file */
 	image.save_image("fractal_output.bmp");
 
-	// Show image in mspaint
+	/* Show image in mspaint */
 	WinExec("mspaint fractal_output.bmp", SW_MAXIMIZE);
 
 	getchar();
