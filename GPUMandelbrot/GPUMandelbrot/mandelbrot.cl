@@ -25,10 +25,11 @@ __global mandelbrot_color* COLOR
 	const float stepPosY = center_Y + y0 - (windowPosY * stepsize);
 	
 	// Variables for the calculation
-	local float x = 0.0;
-	local float y = 0.0;
-	local float xSqr = 0.0;
-	local float ySqr = 0.0;
+	__local float x, y, xSqr, ySqr;
+	x = 0.0;
+	y = 0.0;
+	xSqr = 0.0;
+	ySqr = 0.0;
 	unsigned int iterations = 0;
 
 	// Perform up to the maximum number of iterations to solve

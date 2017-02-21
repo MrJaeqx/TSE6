@@ -60,16 +60,14 @@ int main() {
 	cl_device_id device_id = NULL;
 	cl_context context = NULL;
 	cl_command_queue command_queue = NULL;
-	cl_mem memobj = NULL;
 	cl_program program = NULL;
 	cl_kernel kernel = NULL;
 	cl_platform_id platform_id = NULL;
+	
 	cl_uint ret_num_devices;
 	cl_uint ret_num_platforms;
 	cl_int ret;
-	cl_mem AonDevice = NULL;
-	cl_mem BonDevice = NULL;
-	cl_mem ConDevice = NULL;
+	
 	cl_mem dev_bitmap = NULL;
 	cl_mem dev_colortable = NULL;
 	cl_mem dev_params = NULL;
@@ -176,20 +174,16 @@ int main() {
 	/* Add blocking element */
 	clFinish(command_queue);
 
-
 	/* Finalization */
 	ret = clFlush(command_queue);
 	ret = clFinish(command_queue);
 	ret = clReleaseKernel(kernel);
 	ret = clReleaseProgram(program);
-	ret = clReleaseMemObject(memobj);
+	ret = clReleaseMemObject(dev_bitmap);
+	ret = clReleaseMemObject(dev_colortable);
+	ret = clReleaseMemObject(dev_params);
 	ret = clReleaseCommandQueue(command_queue);
 	ret = clReleaseContext(context);
-
-	// Calculate the fractal
-	//mandelbrot_frame((float)OFFSET_X, (float)OFFSET_Y, (float)1/ZOOMFACTOR, MAX_ITERATIONS, p, colortable2, WIDTH, HEIGHT);
-	
-	
 
 	// Print elapsed time
 	printf("Elapsed time to calculate fractal: %f msec\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
