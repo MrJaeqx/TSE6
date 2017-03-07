@@ -8,6 +8,13 @@
 #include <CL/cl.h>
 #include <stdlib.h>
 
+int getInt()
+{
+	int num;
+	std::cin.operator >> (num);
+	return num;
+}
+
 int main() {
 	/* Define GPU parameters */
 	cl_device_id device_id = NULL;
@@ -23,11 +30,50 @@ int main() {
 	
 	cl_mem dev_g_data = NULL;
 
-	size_t infoSize;	
+	size_t infoSize;
 	char* info;
-	int numbers[] = { 10, 1, 8, -1, 0, -2, 3, 5, -2, -3, 2, 7, 0, 11, 0, 2 };
+	
 	int ret_number[2];
 	char fileName[] = "./kernel_3.cl";
+	char kernelName[] = "kernel_3";
+
+	/* Get user input */
+	printf("Select kernel (1-3)\n");
+	int kernelSelect = getInt();
+	printf("\nSelect array size\n");
+	int arraySize = getInt();
+	printf("\nSelect workgroup size (0 = auto,  max ..., )\n");
+	int workgroupSize = getInt();
+
+	/* Generate array */
+	printf("\nGenerating array, this could take some time...\n");
+	int* numbers = new int[arraySize];
+	for (int i = 0; i < arraySize; i++) {
+		numbers[i] = i;
+	}
+
+	/* Select given kernel */
+	if (kernelSelect == 1) {
+		strcpy(fileName, "./kernel_1.cl");
+		strcpy(kernelName, "kernel_1");
+	}
+	else if (kernelSelect == 2) {
+		strcpy(fileName, "./kernel_2.cl");
+		strcpy(kernelName, "kernel_2");
+	}
+	else {
+		strcpy(fileName, "./kernel_3.cl");
+		strcpy(kernelName, "kernel_3");
+	}
+	
+	/* Calculate workgroup size */
+	int lclSize;
+	if (kernelSelect == 3) {
+		lclSize = workgroupSize / 2;
+	}
+	else {
+		lclSize = workgroupSize;
+	}
 
 	/* Get Platform and Device Info */
 	ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
@@ -39,7 +85,7 @@ int main() {
 	info = (char*)malloc(infoSize);
 	ret = clGetPlatformInfo(platform_id, CL_PLATFORM_NAME, infoSize, info, NULL);
 	checkError(ret, "Couldn't get platform attribute value");
-	printf("Running on %s\n\n", info);
+	printf("\nRunning on %s\n\n", info);
 
 	/* Create OpenCL Context */
 	context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
@@ -50,7 +96,7 @@ int main() {
 	checkError(ret, "Couldn't create commandqueue");
 
 	/* Allocate memory for arrays on the Compute Device */
-	dev_g_data = clCreateBuffer(context, CL_MEM_READ_WRITE,  sizeof(numbers), NULL, &ret);
+	dev_g_data = clCreateBuffer(context, CL_MEM_READ_WRITE,  sizeof(numbers) * arraySize, NULL, &ret);
 	checkError(ret, "Couldn't create global data on device");
 
 	/* Get current time before calculating the fractal */
@@ -59,7 +105,7 @@ int main() {
 	QueryPerformanceCounter(&start);
 
 	/* Copy arrays from host memory to Compute Devive */
-	ret = clEnqueueWriteBuffer(command_queue, dev_g_data, CL_TRUE, 0, sizeof(numbers), numbers, 0, NULL, NULL);
+	ret = clEnqueueWriteBuffer(command_queue, dev_g_data, CL_TRUE, 0, sizeof(numbers) * arraySize, numbers, 0, NULL, NULL);
 	checkError(ret, "Couldn't write numbers on device");
 
 	/* Get current time after calculating the fractal */
@@ -74,13 +120,13 @@ int main() {
 	checkError(ret, "Couldn't compile");
 
 	/* Create OpenCL kernel from the compiled program */
-	kernel = clCreateKernel(program, "kernel_3", &ret);
+	kernel = clCreateKernel(program, kernelName, &ret);
 	checkError(ret, "Couldn't create kernel");
 
 	/* Set OpenCL kernel arguments */
 	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&dev_g_data);
 	checkError(ret, "Couldn't set arg dev_g_data");
-	ret = clSetKernelArg(kernel, 1, 8 * sizeof(int), NULL);
+	ret = clSetKernelArg(kernel, 1, lclSize * sizeof(int), NULL);
 	checkError(ret, "Couldn't set arg dev_l_data");
 
 	/* Get current time before calculating the fractal */
@@ -88,20 +134,14 @@ int main() {
 	QueryPerformanceCounter(&start);
 
 	/* Activate OpenCL kernel on the Compute Device */
-	size_t globalSize[] = { sizeof(numbers) / sizeof(numbers[0]) };
-	size_t localSize[] = { 8 };
+	
+	size_t globalSize[] = { arraySize };
+	size_t localSize[] = { lclSize };
 
 	// TODO: SPLIT INTO MORE KERNELS DEPENDING ON ARRAY SIZE
 
-	clEnqueueNDRangeKernel(command_queue,
-		kernel,
-		1,			// 1D matrix 
-		NULL,
-		globalSize,
-		localSize,		// local size (NULL = auto) 
-		0,
-		NULL,
-		NULL);
+	clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, globalSize, localSize, 0, NULL, NULL);
+	checkError(ret, "Couldn't run kernel");
 
 	/* Add blocking element */
 	clFinish(command_queue);
@@ -140,10 +180,11 @@ int main() {
 
 	/* Print result */
 	printf("Kernel used:  %s\n", fileName);
-	printf("Array length: %d\n\n", (int)sizeof(numbers) / sizeof(numbers[0]));
+	printf("Array length: %d\n\n", arraySize);
 	printf("Result:       %d\n\n", ret_number[0]);
 	printf("Press ENTER to continue...\n");
 
+	getchar();
 	getchar();
 
 	return 0;
