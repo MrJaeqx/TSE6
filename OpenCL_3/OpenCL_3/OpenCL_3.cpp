@@ -35,7 +35,7 @@ int main() {
 	size_t infoSize;
 	char* info;
 	
-	int ret_number[2];
+	int ret_number;
 	char fileName[] = "./kernel_3.cl";
 	char kernelName[] = "kernel_3";
 
@@ -62,7 +62,8 @@ int main() {
 	printf("\nGenerating array, this could take some time...\n");
 	int* numbers = new int[arraySize];
 	for (int i = 0; i < arraySize; i++) {
-		numbers[i] = i;
+		//numbers[i] = i;
+		numbers[i] = 1;
 	}
 
 	/* Select given kernel */
@@ -135,18 +136,18 @@ int main() {
 	size_t localSize[] = { workgroupSize };
 
 	/* Split into kernels depending on array size*/
-	//DEBUG int i = 0;
+	int i = 0;
 	while (globalSize[0] >= localSize[0] && localSize[0] > 1) {
-		//DEBUG printf("\nIteration:   %d\n", i);
-		//DEBUG printf("Global size: %d\n", globalSize[0]);
-		//DEBUG printf("Local size:  %d\n", localSize[0]);*/
+		printf("\nIteration:   %d\n", i);
+		printf("Global size: %d\n", globalSize[0]);
+		printf("Local size:  %d\n", localSize[0]);
 
 		/* Execute kernel */
 		ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, globalSize, localSize, 0, NULL, NULL);
 		checkError(ret, "Couldn't run kernel");
 
 		/* Calculate new global size for next iteration */
-		if (strcmp(kernelName, "kernel_3") == 0) {
+		if (strcmp(kernelName, "kernel_3") == 0 && globalSize[0] == arraySize) {
 			globalSize[0] = globalSize[0] / localSize[0] / 2;
 		} else {
 			globalSize[0] = globalSize[0] / localSize[0];
@@ -154,7 +155,7 @@ int main() {
 		if (globalSize[0] < localSize[0]) {
 			localSize[0] = globalSize[0];
 		}		
-		//DEBUG i++;
+		i++;
 	}
 
 	/* Add blocking element */
@@ -168,7 +169,7 @@ int main() {
 	QueryPerformanceCounter(&timeReadStart);
 
 	/* Transfer result array C back to host */
-	ret = clEnqueueReadBuffer(command_queue, dev_g_data, CL_TRUE, 0, sizeof(ret_number), ret_number, 0, NULL, NULL);
+	ret = clEnqueueReadBuffer(command_queue, dev_g_data, CL_TRUE, 0, sizeof(ret_number), &ret_number, 0, NULL, NULL);
 	checkError(ret, "Couldn't get return");
 
 	/* Add blocking element */
@@ -192,7 +193,7 @@ int main() {
 	printf("Elapsed time to read from GPU: %f msec\n\n", (double)(timeReadEnd.QuadPart - timeReadStart.QuadPart) / timeReadFreq.QuadPart * 1000.0);
 	printf("Kernel used:  %s\n", fileName);
 	printf("Array length: %d\n\n", arraySize);
-	printf("Result:       %d\n\n", ret_number[0]);
+	printf("Result:       %d\n\n", ret_number);
 	printf("Press ENTER to continue...\n");
 
 	getchar();
