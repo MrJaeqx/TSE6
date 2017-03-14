@@ -8,24 +8,22 @@
 #include <windows.h>
 #include <stdio.h>
 #include <iostream>
-#include <CL/cl.h>
+#include <CL\cl.h>
+#include <CL\cl_gl.h>
 #include <stdlib.h>
 #include <GL\freeglut.h>
 #include "OpenGl_functions.h"
 
 
-#define WIDTH 3840
-#define HEIGHT 2160
+#define WIDTH 500
+#define HEIGHT 500
 #define OFFSET_X 0
 #define OFFSET_Y 0
-#define ZOOMFACTOR 800
+#define ZOOMFACTOR 300
 #define MAX_ITERATIONS 8192
 #define COLORTABLE_SIZE 1024
 
-#define MEM_SIZE (128)
-#define MAX_SOURCE_SIZE (0x100000)
-
-mandelbrot_color colortable2[COLORTABLE_SIZE];
+mandelbrot_color colortable[COLORTABLE_SIZE];
 
 cl_int ret;
 
@@ -33,56 +31,29 @@ cl_kernel kernel = NULL;
 
 cl_command_queue command_queue = NULL;
 
-cl_mem dev_bitmap = NULL;
 cl_mem dev_colortable = NULL;
 cl_mem dev_params = NULL;
+cl_mem dev_texture = NULL;
 
 mandelbrot_color * p;
+
+GLuint g_texture;
 
 
 void display() {
 	/* Clear all pixels */
 	glFlush();
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	
+	/* Wait for GL finish */
+	glFinish();
 
-	/* Draw polygon (rectangle) with corners at (0.0, 0.0, 0.0) and (0.5, 0.5, 0.0) */	
-	glColor3f(0.0f, 1.0f, 1.0f);
-	glBegin(GL_POLYGON);
-		glVertex3f(-1.0, -1.0, 0.0);
-		glVertex3f(1.0, -1.0, 0.0);
-		glVertex3f(1.0, 1.0, 0.0);
-		glVertex3f(-1.0, 1.0, 0.0);
-	glEnd();
-
-	/* don't wait!
-	* start processing buffered OpenGL routines
-	*/
-	//glFlush();
-
-
-	/*
-	// Acquire OpenCL access to the texture   
-	clEnqueueAcquireGLObjects(queue, 1, &cl_tex, 0, NULL, NULL);
-
-	clSetKernelArg(..., ..., sizeof(cl_mem), (void *)&cl_tex);
-	clEnqueueNDRangeKernel(......);
-
-	// Give the texture back to OpenGL
-	clEnqueueReleaseGLObjects(queue, 1, &cl_tex, 0, NULL, NULL);
-
-	//Wait until object is actually released by OpenCL
-	clFinish(queue);
-
-	// Draw quad, with the texture mapped on it in OPENGL
-	......
-
-	// Request another redisplay of the window
-	glutPostRedisplay();*/
+	ret = clEnqueueAcquireGLObjects(command_queue, 1, &dev_texture, 0, NULL, NULL);
+	checkError(ret, "Couldn't acquire CL object");
 
 	/* Set OpenCL kernel arguments */
 	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&dev_params);
 	checkError(ret, "Couldn't set arg dev_params");
-	ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dev_bitmap);
+	ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dev_texture);
 	checkError(ret, "Couldn't set arg dev_bitmap");
 	ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&dev_colortable);
 	checkError(ret, "Couldn't set arg dev_colortable");
@@ -90,25 +61,21 @@ void display() {
 	/* Activate OpenCL kernel on the Compute Device */
 	size_t globalSize[] = { WIDTH , HEIGHT };
 	size_t localSize[] = { 800 , 1 };
-	clEnqueueNDRangeKernel(command_queue,
-		kernel,
-		2,			// 2D matrix 
-		NULL,
-		globalSize,
-		NULL,		// local size (NULL = auto) 
-		0,
-		NULL,
-		NULL);
+	
+	ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalSize, NULL, 0, NULL, NULL);
+	checkError(ret, "Couldn't execute kernel");
+
+	ret = clEnqueueReleaseGLObjects(command_queue, 1, &dev_texture, 0, NULL, NULL);
+	checkError(ret, "Couldn't release GL object");
 
 	/* Add blocking element */
 	clFinish(command_queue);
 
-	/* Transfer result array C back to host */
-	ret = clEnqueueReadBuffer(command_queue, dev_bitmap, CL_TRUE, 0, WIDTH * HEIGHT * sizeof(mandelbrot_color), p, 0, NULL, NULL);
-	checkError(ret, "Couldn't get ...");
+	/* Use OpenGL_functions to draw quad */
+	draw_quad();
 
-	/* Add blocking element */
-	clFinish(command_queue);
+	/* Request another redisplay of the window */
+	glutPostRedisplay();
 }
 
 
@@ -121,29 +88,22 @@ int main(int argc, char** argv) {
 	
 	cl_uint ret_num_devices;
 	cl_uint ret_num_platforms;
-	
+
 	size_t infoSize;
 	unsigned int params[7] = {WIDTH, HEIGHT, OFFSET_X, OFFSET_Y, ZOOMFACTOR, MAX_ITERATIONS, COLORTABLE_SIZE};	
 	char* info;
 	char fileName[] = "./mandelbrot.cl";
 
+	/* Create the colortable and fill it with colors */
+	create_colortable(COLORTABLE_SIZE, colortable);
+
 	/* Create window*/
 	glutInit(&argc, argv);
-	//glutInitDisplayMode(GLUT_SINGLE);
+	glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 	glutInitWindowSize(500, 500);
-	//glutInitWindowPosition(100, 100);
-	glutCreateWindow("Hello world");
+	glutInitWindowPosition(300, 300);
+	glutCreateWindow("Mandelbrot");
 	glutDisplayFunc(display);
-
-	/* Init GL */
-	//init_gl(500, 500);
-
-	/* Create the colortable and fill it with colors */
-	create_colortable(COLORTABLE_SIZE, colortable2);
-
-	/* Create an empty image */
-	bitmap_image image(WIDTH, HEIGHT);
-	p = (mandelbrot_color *)image.data();
 
 	/* Get Platform and Device Info */
 	ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
@@ -158,7 +118,12 @@ int main(int argc, char** argv) {
 	printf("Running on %s\n\n", info);
 
 	/* Create OpenCL Context */
-	context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
+	cl_context_properties properties[] = {
+		CL_GL_CONTEXT_KHR, reinterpret_cast<cl_context_properties>(wglGetCurrentContext()),
+		CL_WGL_HDC_KHR, reinterpret_cast<cl_context_properties>(wglGetCurrentDC()),
+		0
+	};
+	context = clCreateContext(properties, 1, &device_id, NULL, NULL, &ret);
 	checkError(ret, "Couldn't create context");
 
 	/* Create command queue */
@@ -168,15 +133,13 @@ int main(int argc, char** argv) {
 	/* Allocate memory for arrays on the Compute Device */
 	dev_params = clCreateBuffer(context, CL_MEM_READ_ONLY, 7 * sizeof(int), NULL, &ret);
 	checkError(ret, "Couldn't create params on device");
-	dev_bitmap = clCreateBuffer(context, CL_MEM_READ_WRITE, WIDTH * HEIGHT * sizeof(mandelbrot_color), NULL, &ret);
-	checkError(ret, "Couldn't create bitmap on device");
 	dev_colortable = clCreateBuffer(context, CL_MEM_READ_ONLY, COLORTABLE_SIZE * sizeof(mandelbrot_color), NULL, &ret);
 	checkError(ret, "Couldn't create colortable on device");
 
 	/* Copy arrays from host memory to Compute Devive */
 	ret = clEnqueueWriteBuffer(command_queue, dev_params, CL_TRUE, 0, 7 * sizeof(int), params, 0, NULL, NULL);
 	checkError(ret, "Couldn't write params on device");
-	ret = clEnqueueWriteBuffer(command_queue, dev_colortable, CL_TRUE, 0, COLORTABLE_SIZE * sizeof(mandelbrot_color), colortable2, 0, NULL, NULL);
+	ret = clEnqueueWriteBuffer(command_queue, dev_colortable, CL_TRUE, 0, COLORTABLE_SIZE * sizeof(mandelbrot_color), colortable, 0, NULL, NULL);
 	checkError(ret, "Couldn't write colortable on device");
 
 	/* Create kernel program */
@@ -185,9 +148,17 @@ int main(int argc, char** argv) {
 
 	/* Create OpenCL kernel from the compiled program */
 	kernel = clCreateKernel(program, "mandelbrot", &ret);
-	printf("kernel created\n");
+	printf("kernel created\n\n");
 	checkError(ret, "Couldn't create kernel");
 
+	/* Create texture in OpenGL using OpenGL_functions */
+	g_texture = init_gl(500, 500);
+
+	/* Map texture to OpenCL */
+	dev_texture = clCreateFromGLTexture2D(context, CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, g_texture, &ret);
+	checkError(ret, "Couldn't create texture");
+
+	/* Run glut window main loop */
 	glutMainLoop();
 
 	/* Finalization */
@@ -195,7 +166,7 @@ int main(int argc, char** argv) {
 	ret = clFinish(command_queue);
 	ret = clReleaseKernel(kernel);
 	ret = clReleaseProgram(program);
-	ret = clReleaseMemObject(dev_bitmap);
+	ret = clReleaseMemObject(dev_texture);
 	ret = clReleaseMemObject(dev_colortable);
 	ret = clReleaseMemObject(dev_params);
 	ret = clReleaseCommandQueue(command_queue);

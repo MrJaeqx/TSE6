@@ -4,7 +4,7 @@ typedef struct {
 
 __kernel void mandelbrot
 (__global int* PARAMS,
-__global mandelbrot_color* BITMAP,
+__write_only image2d_t BITMAP,
 __global mandelbrot_color* COLOR
 )
 {
@@ -49,6 +49,12 @@ __global mandelbrot_color* COLOR
 
 	// Output black if we never finished, and a color from the look up table otherwise
 	mandelbrot_color black = { 0,0,0 };
-	BITMAP[(window_width * windowPosY + windowPosX)] = (iterations == max_iterations) ? black : COLOR[iterations];
+
+	mandelbrot_color output = (iterations == max_iterations) ? black : COLOR[iterations];
+
+	int2 coord = (int2)(windowPosX, windowPosY);
+	float4 color_yellow = (float4)(output.red / 255, output.green / 255, output.blue / 255, 1.0);
+	write_imagef(BITMAP, coord, color_yellow);
+
 
 }

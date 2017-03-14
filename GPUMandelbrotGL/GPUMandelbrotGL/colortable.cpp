@@ -6,7 +6,7 @@ void create_colortable(int size, mandelbrot_color * colortable)
 	for (unsigned int i = 0; i < size; i++)
 	{
 		if (i < 64) {
-			mandelbrot_color color_entry = { 0, 0, (5 * i + 20<255) ? 5 * i + 20 : 255 };
+			mandelbrot_color color_entry = { 255, 0, (5 * i + 20<255) ? 5 * i + 20 : 255 };
 			colortable[i] = color_entry;
 		}
 
