@@ -14,14 +14,12 @@
 #include <GL\freeglut.h>
 #include "OpenGl_functions.h"
 
-
-#define WIDTH 500
-#define HEIGHT 500
-#define OFFSET_X 0
-#define OFFSET_Y 0
-#define ZOOMFACTOR 300
+#define WIDTH 800
+#define HEIGHT 800
+#define OFFSET_X -0.2414798
+#define OFFSET_Y -.5521
 #define MAX_ITERATIONS 8192
-#define COLORTABLE_SIZE 1024
+#define COLORTABLE_SIZE 4096
 
 mandelbrot_color colortable[COLORTABLE_SIZE];
 
@@ -34,10 +32,15 @@ cl_command_queue command_queue = NULL;
 cl_mem dev_colortable = NULL;
 cl_mem dev_params = NULL;
 cl_mem dev_texture = NULL;
+cl_mem dev_stepsize = NULL;
 
 mandelbrot_color * p;
 
 GLuint g_texture;
+
+int now, previous;
+float stepsize = 0.01;
+float params[6] = { WIDTH, HEIGHT, OFFSET_X, OFFSET_Y, MAX_ITERATIONS, COLORTABLE_SIZE };
 
 
 void display() {
@@ -47,8 +50,22 @@ void display() {
 	/* Wait for GL finish */
 	glFinish();
 
+	/* Calculate stepsize */
+	now = glutGet(GLUT_ELAPSED_TIME);
+	stepsize *= pow(.95, (now - previous) / 100.0);
+	previous = now;
+
+	/*  */
+	ret = clEnqueueWriteBuffer(command_queue, dev_stepsize, CL_TRUE, 0, sizeof(float), &stepsize, 0, NULL, NULL);
+	checkError(ret, "Couldn't write params on device");
+
 	ret = clEnqueueAcquireGLObjects(command_queue, 1, &dev_texture, 0, NULL, NULL);
 	checkError(ret, "Couldn't acquire CL object");
+
+	//params[4] = stepsize;//params[4] * 2;
+
+	ret = clEnqueueWriteBuffer(command_queue, dev_params, CL_TRUE, 0, 7 * sizeof(float), params, 0, NULL, NULL);
+	checkError(ret, "Couldn't write params on device");
 
 	/* Set OpenCL kernel arguments */
 	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&dev_params);
@@ -56,6 +73,8 @@ void display() {
 	ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dev_texture);
 	checkError(ret, "Couldn't set arg dev_bitmap");
 	ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&dev_colortable);
+	checkError(ret, "Couldn't set arg dev_colortable");
+	ret = clSetKernelArg(kernel, 3, sizeof(cl_mem), (void *)&dev_stepsize);
 	checkError(ret, "Couldn't set arg dev_colortable");
 
 	/* Activate OpenCL kernel on the Compute Device */
@@ -90,17 +109,17 @@ int main(int argc, char** argv) {
 	cl_uint ret_num_platforms;
 
 	size_t infoSize;
-	unsigned int params[7] = {WIDTH, HEIGHT, OFFSET_X, OFFSET_Y, ZOOMFACTOR, MAX_ITERATIONS, COLORTABLE_SIZE};	
+	//params = {WIDTH, HEIGHT, OFFSET_X, OFFSET_Y, ZOOMFACTOR, MAX_ITERATIONS, COLORTABLE_SIZE};	
 	char* info;
 	char fileName[] = "./mandelbrot.cl";
 
 	/* Create the colortable and fill it with colors */
-	create_colortable(COLORTABLE_SIZE, colortable);
+	create_colortable_2(COLORTABLE_SIZE, colortable);
 
 	/* Create window*/
 	glutInit(&argc, argv);
 	glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
-	glutInitWindowSize(500, 500);
+	glutInitWindowSize(WIDTH, HEIGHT);
 	glutInitWindowPosition(300, 300);
 	glutCreateWindow("Mandelbrot");
 	glutDisplayFunc(display);
@@ -131,13 +150,15 @@ int main(int argc, char** argv) {
 	checkError(ret, "Couldn't create commandqueue");
 
 	/* Allocate memory for arrays on the Compute Device */
-	dev_params = clCreateBuffer(context, CL_MEM_READ_ONLY, 7 * sizeof(int), NULL, &ret);
+	dev_stepsize = clCreateBuffer(context, CL_MEM_READ_ONLY, 7 * sizeof(float), NULL, &ret);
+	checkError(ret, "Couldn't create stepsize on device");
+	dev_params = clCreateBuffer(context, CL_MEM_READ_ONLY, 7 * sizeof(float), NULL, &ret);
 	checkError(ret, "Couldn't create params on device");
 	dev_colortable = clCreateBuffer(context, CL_MEM_READ_ONLY, COLORTABLE_SIZE * sizeof(mandelbrot_color), NULL, &ret);
 	checkError(ret, "Couldn't create colortable on device");
 
 	/* Copy arrays from host memory to Compute Devive */
-	ret = clEnqueueWriteBuffer(command_queue, dev_params, CL_TRUE, 0, 7 * sizeof(int), params, 0, NULL, NULL);
+	ret = clEnqueueWriteBuffer(command_queue, dev_params, CL_TRUE, 0, 6 * sizeof(float), params, 0, NULL, NULL);
 	checkError(ret, "Couldn't write params on device");
 	ret = clEnqueueWriteBuffer(command_queue, dev_colortable, CL_TRUE, 0, COLORTABLE_SIZE * sizeof(mandelbrot_color), colortable, 0, NULL, NULL);
 	checkError(ret, "Couldn't write colortable on device");

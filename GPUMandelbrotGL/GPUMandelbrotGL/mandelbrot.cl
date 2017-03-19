@@ -1,31 +1,32 @@
 typedef struct {
-	unsigned char blue, green, red;
+	float blue, green, red;
 } mandelbrot_color;
 
 __kernel void mandelbrot
-(__global int* PARAMS,
+(__global float* PARAMS,
 __write_only image2d_t BITMAP,
-__global mandelbrot_color* COLOR
+__global mandelbrot_color* COLOR,
+__global float* STPSIZE
 )
 {
 	int windowPosX = get_global_id(0);
 	int windowPosY = get_global_id(1);
 
-	float x0 = (float)PARAMS[2];
-	float y0 = (float)PARAMS[3];
-	float stepsize = (float)1 / (float)PARAMS[4];
-	unsigned int max_iterations = PARAMS[5];
-	unsigned int window_width = PARAMS[0];
-	unsigned int window_height = PARAMS[1];
+	double x0 = (double)PARAMS[2];
+	double y0 = (double)PARAMS[3];
+	double stepsize = (double)*STPSIZE;
+	unsigned int max_iterations = (unsigned int)PARAMS[4];
+	unsigned int window_width = (unsigned int)PARAMS[0];
+	unsigned int window_height = (unsigned int)PARAMS[1];
 	
 
-	float center_X = -(stepsize*window_width / 2);
-	float center_Y = (stepsize*window_height / 2);
-	const float stepPosX = center_X - x0 + (windowPosX * stepsize);
-	const float stepPosY = center_Y + y0 - (windowPosY * stepsize);
+	double center_X = -(stepsize*window_width / 2);
+	double center_Y = (stepsize*window_height / 2);
+	const double stepPosX = center_X - x0 + (windowPosX * stepsize);
+	const double stepPosY = center_Y + y0 - (windowPosY * stepsize);
 	
 	// Variables for the calculation
-	__local float x, y, xSqr, ySqr;
+	__local double x, y, xSqr, ySqr;
 	x = 0.0;
 	y = 0.0;
 	xSqr = 0.0;

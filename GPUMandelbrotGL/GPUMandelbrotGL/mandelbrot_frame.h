@@ -1,7 +1,7 @@
 #pragma once
 
 typedef struct {
-	unsigned char blue, green, red;
+	float blue, green, red;
 } mandelbrot_color;
 
 void mandelbrot_frame (
