@@ -55,17 +55,13 @@ void display() {
 	stepsize *= pow(.95, (now - previous) / 100.0);
 	previous = now;
 
-	/*  */
+	/* Write stepsize to device */
 	ret = clEnqueueWriteBuffer(command_queue, dev_stepsize, CL_TRUE, 0, sizeof(float), &stepsize, 0, NULL, NULL);
-	checkError(ret, "Couldn't write params on device");
+	checkError(ret, "Couldn't write stepsize on device");
 
+	/* Aquie GL texture */
 	ret = clEnqueueAcquireGLObjects(command_queue, 1, &dev_texture, 0, NULL, NULL);
 	checkError(ret, "Couldn't acquire CL object");
-
-	//params[4] = stepsize;//params[4] * 2;
-
-	ret = clEnqueueWriteBuffer(command_queue, dev_params, CL_TRUE, 0, 7 * sizeof(float), params, 0, NULL, NULL);
-	checkError(ret, "Couldn't write params on device");
 
 	/* Set OpenCL kernel arguments */
 	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&dev_params);
@@ -81,9 +77,11 @@ void display() {
 	size_t globalSize[] = { WIDTH , HEIGHT };
 	size_t localSize[] = { 800 , 1 };
 	
+	/* Run kernel */
 	ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalSize, NULL, 0, NULL, NULL);
 	checkError(ret, "Couldn't execute kernel");
 
+	/* Release texture */
 	ret = clEnqueueReleaseGLObjects(command_queue, 1, &dev_texture, 0, NULL, NULL);
 	checkError(ret, "Couldn't release GL object");
 
@@ -150,9 +148,9 @@ int main(int argc, char** argv) {
 	checkError(ret, "Couldn't create commandqueue");
 
 	/* Allocate memory for arrays on the Compute Device */
-	dev_stepsize = clCreateBuffer(context, CL_MEM_READ_ONLY, 7 * sizeof(float), NULL, &ret);
+	dev_stepsize = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float), NULL, &ret);
 	checkError(ret, "Couldn't create stepsize on device");
-	dev_params = clCreateBuffer(context, CL_MEM_READ_ONLY, 7 * sizeof(float), NULL, &ret);
+	dev_params = clCreateBuffer(context, CL_MEM_READ_ONLY, 6 * sizeof(float), NULL, &ret);
 	checkError(ret, "Couldn't create params on device");
 	dev_colortable = clCreateBuffer(context, CL_MEM_READ_ONLY, COLORTABLE_SIZE * sizeof(mandelbrot_color), NULL, &ret);
 	checkError(ret, "Couldn't create colortable on device");
