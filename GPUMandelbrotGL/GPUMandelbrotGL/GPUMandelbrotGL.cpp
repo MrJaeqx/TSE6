@@ -14,8 +14,8 @@
 #include <GL\freeglut.h>
 #include "OpenGl_functions.h"
 
-#define WIDTH 800
-#define HEIGHT 800
+#define WIDTH 500
+#define HEIGHT 500
 #define OFFSET_X -0.2414798
 #define OFFSET_Y -.5521
 #define MAX_ITERATIONS 8192
@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
 	cl_device_id device_id = NULL;
 	cl_context context = NULL;
 	cl_program program = NULL;
-	cl_platform_id platform_id = NULL;
+	cl_platform_id platform_id[2];// = NULL;
 	
 	cl_uint ret_num_devices;
 	cl_uint ret_num_platforms;
@@ -109,6 +109,7 @@ int main(int argc, char** argv) {
 	size_t infoSize;
 	//params = {WIDTH, HEIGHT, OFFSET_X, OFFSET_Y, ZOOMFACTOR, MAX_ITERATIONS, COLORTABLE_SIZE};	
 	char* info;
+	char* infoPlat;
 	char fileName[] = "./mandelbrot.cl";
 
 	/* Create the colortable and fill it with colors */
@@ -123,9 +124,19 @@ int main(int argc, char** argv) {
 	glutDisplayFunc(display);
 
 	/* Get Platform and Device Info */
-	ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
+	ret = clGetPlatformIDs(2, platform_id, &ret_num_platforms);
 	checkError(ret, "Couldn't get platform ids");
-	ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_DEFAULT, 1, &device_id, &ret_num_devices);
+
+	for (int i = 0; i < (int)ret_num_platforms; i++) {
+		ret = clGetPlatformInfo(platform_id[i], CL_PLATFORM_NAME, 0, NULL, &infoSize);
+		checkError(ret, "Couldn't get device info size");
+		infoPlat = (char*)malloc(infoSize);
+		ret = clGetPlatformInfo(platform_id[i], CL_PLATFORM_NAME, infoSize, infoPlat, NULL);
+		checkError(ret, "Couldn't get device info value");
+		printf("Device [%d], %s\n", i, infoPlat);
+	}
+
+	ret = clGetDeviceIDs(platform_id[0], CL_DEVICE_TYPE_GPU, 1, &device_id, &ret_num_devices);
 	checkError(ret, "Couldn't get device ids");
 	ret = clGetDeviceInfo(device_id, CL_DEVICE_NAME, 0, NULL, &infoSize);
 	checkError(ret, "Couldn't get device info size");
@@ -140,6 +151,7 @@ int main(int argc, char** argv) {
 		CL_WGL_HDC_KHR, reinterpret_cast<cl_context_properties>(wglGetCurrentDC()),
 		0
 	};
+
 	context = clCreateContext(properties, 1, &device_id, NULL, NULL, &ret);
 	checkError(ret, "Couldn't create context");
 
