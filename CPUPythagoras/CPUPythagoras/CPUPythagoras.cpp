@@ -11,13 +11,29 @@
 
 #define WINDOW_SIZE 700
 
+float windowBounds = 10;
+
 void display(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	pytharos_fractal(-1.6, 5, 1.6, 5, 0.5); //call he recursive function
+	LARGE_INTEGER freq, start;
+	QueryPerformanceFrequency(&freq);
+	QueryPerformanceCounter(&start);
 
-	printf("DONE\n");
+	pytharos_fractal(-1.6, 8.28, 1.6, 8.28, 0.5, 1); //call he recursive function
+
+	LARGE_INTEGER end;
+	QueryPerformanceCounter(&end);
+
+	windowBounds = windowBounds * .9;
+
+	printf("Elapsed time to calculate fractal: %f msec\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluOrtho2D(-windowBounds, windowBounds, -windowBounds, windowBounds);
+
 	glFlush();
 }
 
@@ -32,7 +48,7 @@ int main(int argc, char** argv) {
 	glClearColor(0.0, 0.0, 0.0, 0.0);         // background
 	glMatrixMode(GL_PROJECTION);              // setup viewing projection
 	glLoadIdentity();
-	gluOrtho2D(-10.0, 10.0, -10.0, 10.0);
+	gluOrtho2D(-windowBounds, windowBounds, -windowBounds, windowBounds);
 
 	glutDisplayFunc(display);
 	glutMainLoop();

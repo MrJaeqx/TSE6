@@ -3,10 +3,10 @@
 #include <GL\freeglut.h>
 
 #define WINDOW_SIZE 700
+#define MAXITERATIONS 40
+#define ANGLE 45
 
-#define ANGLE 60
-
-void pytharos_fractal(float topLeftx, float topLefty, float topRightx, float topRighty, float n)
+void pytharos_fractal(float topLeftx, float topLefty, float topRightx, float topRighty, float n, int iterations)
 {
 	//1st point						top left corner
 	float Q1x = topLeftx;
@@ -47,6 +47,14 @@ void pytharos_fractal(float topLeftx, float topLefty, float topRightx, float top
 	glEnd();
 	//*/
 
+	//length of a side of the square
+	float dist = sqrt(((Q1x - Q2x)*(Q1x - Q2x)) + ((Q1y - Q2y)*(Q1y - Q2y)));
+
+	/*
+	float a = cos(ANGLE) * dist;
+	float ACx = cos(ANGLE) * a;
+	float ACy = sin(ANGLE) * a;
+	*/
 
 	//calculate begining of next square
 	float ACx = (Q3x - Q1x) / 2;	//half of the diagonal
@@ -55,13 +63,12 @@ void pytharos_fractal(float topLeftx, float topLefty, float topRightx, float top
 	float newy = ACy + Q4y;		// off of the bottom of the square
 
 
-								//length of a side of the square
-	float dist = sqrt(((Q1x - Q2x)*(Q1x - Q2x)) + ((Q1y - Q2y)*(Q1y - Q2y)));
+	
 
 	// 1/700 = x/20
 	//20/700 = 1 px?
-	if (dist > (20.0 / WINDOW_SIZE)) { //if the square is larger than 1 pixel
-		pytharos_fractal(Q4x, Q4y, newx, newy, n + 0.03); //left recursion
-		pytharos_fractal(newx, newy, Q3x, Q3y, n + 0.08); //right recursion
+	if (iterations < MAXITERATIONS) { //if the square is larger than 1 pixel
+		pytharos_fractal(Q4x, Q4y, newx, newy, n + 0.03, iterations + 2); //left recursion
+		pytharos_fractal(newx, newy, Q3x, Q3y, n + 0.08, iterations + 2); //right recursion
 	}
 }
