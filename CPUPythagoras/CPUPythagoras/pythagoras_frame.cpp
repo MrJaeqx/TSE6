@@ -3,7 +3,7 @@
 #include <GL\freeglut.h>
 
 #define WINDOW_SIZE 700
-#define MAXITERATIONS 20
+#define MAXITERATIONS 13
 #define ANGLE 45
 
 void pytharos_fractal(float topLeftx, float topLefty, float topRightx, float topRighty, float n, int iterations)

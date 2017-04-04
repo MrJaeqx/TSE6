@@ -13,6 +13,7 @@
 #include "OpenGl_functions.h"
 
 #define WINDOW_SIZE 700
+#define ITERATIONS 12
 
 pythagoras_coords startPos = { -1.6, 8.28, 1.6, 8.28 };
 
@@ -24,9 +25,7 @@ cl_kernel kernel = NULL;
 
 cl_command_queue command_queue = NULL;
 
-cl_mem dev_input = NULL;
-cl_mem dev_output_l = NULL;
-cl_mem dev_output_r = NULL;
+cl_mem dev_output = NULL;
 
 GLuint g_texture;
 
@@ -58,107 +57,67 @@ void drawQuad(pythagoras_coords co) {
 
 
 void display() {
-	pythagoras_coords outputL;
-	pythagoras_coords outputR;
-	pythagoras_coords startPosL = { -1.6, 8.28, 1.6, 8.28 };
-	pythagoras_coords startPosR = { -1.6, 8.28, 1.6, 8.28 };
+	size_t globalSize[1];
+	int size = pow(2, ITERATIONS);
+	pythagoras_coords * outputL = new pythagoras_coords[size];
+	pythagoras_coords outputR[ITERATIONS+1];
 
 	// Wait for GL finish
 	glFinish();
 
+	// Clear screen
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	// Draw start quad
 	drawQuad(startPos);
 
-	/*LARGE_INTEGER freq, start;
+	// Start timer
+	LARGE_INTEGER freq, start;
 	QueryPerformanceFrequency(&freq);
 	QueryPerformanceCounter(&start);
+	
+	for (int i = 0; i < ITERATIONS; i++) {
+		// Write stepsize to device
+		if (i == 0) {
+			ret = clEnqueueWriteBuffer(command_queue, dev_output, CL_TRUE, 0, sizeof(pythagoras_coords), &startPos, 0, NULL, NULL);
+			checkError(ret, "Couldn't write stepsize on device");
+		}
 
+		// Set OpenCL kernel arguments
+		ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&dev_output);
+		checkError(ret, "Couldn't set arg dev_params");
+
+		// Change global size to new amount of fractals
+		globalSize[0] = pow(2, i);
+
+		// Run kernel
+		ret = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, globalSize, NULL, 0, NULL, NULL);
+		checkError(ret, "Couldn't execute kernel");
+
+		// Get output of calculation
+		ret = clEnqueueReadBuffer(command_queue, dev_output, CL_TRUE, 0, globalSize[0] * 2 * sizeof(pythagoras_coords), &outputL[0], 0, NULL, NULL);
+		checkError(ret, "Couldn't get output");
+
+		// Add blocking element
+		clFinish(command_queue);
+
+		// Draw echt quad
+		for (int j = 0; j < globalSize[0] * 2; j++) {
+			drawQuad(outputL[j]);
+		}
+	}
+
+	// Get elapsed time
 	LARGE_INTEGER end;
 	QueryPerformanceCounter(&end);
-
 	printf("Elapsed time to calculate fractal: %f msec\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
-	*/	
 
-	// Write stepsize to device
-	ret = clEnqueueWriteBuffer(command_queue, dev_input, CL_TRUE, 0, sizeof(pythagoras_coords), &startPosL, 0, NULL, NULL);
-	checkError(ret, "Couldn't write stepsize on device");
-
-	// Set OpenCL kernel arguments
-	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&dev_input);
-	checkError(ret, "Couldn't set arg dev_params");
-	ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dev_output_l);
-	checkError(ret, "Couldn't set arg dev_bitmap");
-	ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&dev_output_r);
-	checkError(ret, "Couldn't set arg dev_bitmap");
-
-	// Activate OpenCL kernel on the Compute Device
-	size_t globalSize[] = { 1 , 1 };
-	//size_t localSize[] = { 700 , 1 };
-
-	// Run kernel
-	ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalSize, NULL, 0, NULL, NULL);
-	checkError(ret, "Couldn't execute kernel");
-
-	// Get output of calculation
-	ret = clEnqueueReadBuffer(command_queue, dev_output_l, CL_TRUE, 0, sizeof(pythagoras_coords), &outputL, 0, NULL, NULL);
-	checkError(ret, "Couldn't get output");
-	// Get output of calculation
-	ret = clEnqueueReadBuffer(command_queue, dev_output_r, CL_TRUE, 0, sizeof(pythagoras_coords), &outputR, 0, NULL, NULL);
-	checkError(ret, "Couldn't get output");
-
-	// Add blocking element
-	clFinish(command_queue);
-
-	printf("1: Output L: %f, %f, %f, %f\n", outputL.topLeftx, outputL.topLefty, outputL.topRightx, outputL.topRighty);
-	printf("1: Output R: %f, %f, %f, %f\n", outputR.topLeftx, outputR.topLefty, outputR.topRightx, outputR.topRighty);
-
-	drawQuad(outputL);
-	drawQuad(outputR);
-
-
-
-
-
-	// Write stepsize to device
-	ret = clEnqueueWriteBuffer(command_queue, dev_input, CL_TRUE, 0, sizeof(pythagoras_coords), &outputL, 0, NULL, NULL);
-	checkError(ret, "Couldn't write stepsize on device");
-
-	// Set OpenCL kernel arguments
-	ret = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&dev_input);
-	checkError(ret, "Couldn't set arg dev_params");
-	ret = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dev_output_l);
-	checkError(ret, "Couldn't set arg dev_bitmap");
-	ret = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&dev_output_r);
-	checkError(ret, "Couldn't set arg dev_bitmap");
-
-	// Run kernel
-	ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalSize, NULL, 0, NULL, NULL);
-	checkError(ret, "Couldn't execute kernel");
-
-	// Get output of calculation
-	ret = clEnqueueReadBuffer(command_queue, dev_output_l, CL_TRUE, 0, sizeof(pythagoras_coords), &outputL, 0, NULL, NULL);
-	checkError(ret, "Couldn't get output");
-	// Get output of calculation
-	ret = clEnqueueReadBuffer(command_queue, dev_output_r, CL_TRUE, 0, sizeof(pythagoras_coords), &outputR, 0, NULL, NULL);
-	checkError(ret, "Couldn't get output");
-
-	// Add blocking element
-	clFinish(command_queue);
-
-	printf("2: Output L: %f, %f, %f, %f\n", outputL.topLeftx, outputL.topLefty, outputL.topRightx, outputL.topRighty);
-	printf("2: Output R: %f, %f, %f, %f\n", outputR.topLeftx, outputR.topLefty, outputR.topRightx, outputR.topRighty);
-
-	drawQuad(outputL);
-	drawQuad(outputR);
-
-
-	///* Request another redisplay of the window */
-
+	// Set view in openGL
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluOrtho2D(-windowBounds, windowBounds, -windowBounds, windowBounds);
 
+	// Request another redisplay of the window
 	glFlush();
 	//glutPostRedisplay();
 }
@@ -225,25 +184,17 @@ int main(int argc, char** argv) {
 	checkError(ret, "Couldn't create commandqueue");
 
 	// Allocate memory for arrays on the Compute Device
-	dev_input = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(pythagoras_coords), NULL, &ret);
-	checkError(ret, "Couldn't create stepsize on device");
-	dev_output_l = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(pythagoras_coords), NULL, &ret);
+	dev_output = clCreateBuffer(context, CL_MEM_READ_WRITE, pow(2, ITERATIONS) * sizeof(pythagoras_coords), NULL, &ret);
 	checkError(ret, "Couldn't create params on device");
-	dev_output_r = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(pythagoras_coords), NULL, &ret);
-	checkError(ret, "Couldn't create params on device");
-
-	// Copy arrays from host memory to Compute Devive
-	ret = clEnqueueWriteBuffer(command_queue, dev_input, CL_TRUE, 0, sizeof(pythagoras_coords), &startPos, 0, NULL, NULL);
-	checkError(ret, "Couldn't write params on device");
 
 	// Create kernel program
 	program = build_program(context, device_id, fileName);
 	checkError(ret, "Couldn't compile");
 
 	// Create OpenCL kernel from the compiled program
-	kernel = clCreateKernel(program, "pythagoras", &ret);
-	printf("kernel created\n\n");
+	kernel = clCreateKernel(program, "pythagoras_multiple", &ret);
 	checkError(ret, "Couldn't create kernel");
+	printf("kernel created\n\n");
 
 	// Create texture in OpenGL using OpenGL_functions
 	glClearColor(0.0, 0.0, 0.0, 0.0);         // background
@@ -260,9 +211,7 @@ int main(int argc, char** argv) {
 	ret = clFinish(command_queue);
 	ret = clReleaseKernel(kernel);
 	ret = clReleaseProgram(program);
-	ret = clReleaseMemObject(dev_input);
-	ret = clReleaseMemObject(dev_output_l);
-	ret = clReleaseMemObject(dev_output_r);
+	ret = clReleaseMemObject(dev_output);
 	ret = clReleaseCommandQueue(command_queue);
 	ret = clReleaseContext(context);
 
