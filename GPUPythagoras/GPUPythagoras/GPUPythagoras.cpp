@@ -1,7 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define _SCL_SECURE_NO_WARNINGS
 
-#include "pythagoras_frame.h"
 #include "opencl_utils.h"
 #include <windows.h>
 #include <stdio.h>
@@ -10,10 +9,13 @@
 #include <CL\cl_gl.h>
 #include <stdlib.h>
 #include <GL\freeglut.h>
-#include "OpenGl_functions.h"
 
 #define WINDOW_SIZE 700
-#define ITERATIONS 12
+#define ITERATIONS 22
+
+typedef struct {
+	float topLeftx, topLefty, topRightx, topRighty;
+} pythagoras_coords;
 
 pythagoras_coords startPos = { -1.6, 8.28, 1.6, 8.28 };
 
@@ -60,7 +62,6 @@ void display() {
 	size_t globalSize[1];
 	int size = pow(2, ITERATIONS);
 	pythagoras_coords * outputL = new pythagoras_coords[size];
-	pythagoras_coords outputR[ITERATIONS+1];
 
 	// Wait for GL finish
 	glFinish();
@@ -110,7 +111,10 @@ void display() {
 	// Get elapsed time
 	LARGE_INTEGER end;
 	QueryPerformanceCounter(&end);
-	printf("Elapsed time to calculate fractal: %f msec\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
+	printf("%f\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
+	//printf("Elapsed time to calculate fractal: %f msec\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
+
+	windowBounds = windowBounds * .9;
 
 	// Set view in openGL
 	glMatrixMode(GL_PROJECTION);
@@ -120,6 +124,8 @@ void display() {
 	// Request another redisplay of the window
 	glFlush();
 	//glutPostRedisplay();
+
+	delete outputL;
 }
 
 
@@ -168,15 +174,8 @@ int main(int argc, char** argv) {
 	checkError(ret, "Couldn't get device info value");
 	printf("Running on %s\n\n", info);
 
-	// Create OpenCL Context
-	cl_context_properties properties[] = {
-		CL_GL_CONTEXT_KHR, reinterpret_cast<cl_context_properties>(wglGetCurrentContext()),
-		CL_WGL_HDC_KHR, reinterpret_cast<cl_context_properties>(wglGetCurrentDC()),
-		0
-	};
-
 	// Create context
-	context = clCreateContext(properties, 1, &device_id, NULL, NULL, &ret);
+	context = clCreateContext(NULL, 1, &device_id, NULL, NULL, &ret);
 	checkError(ret, "Couldn't create context");
 
 	// Create command queue 

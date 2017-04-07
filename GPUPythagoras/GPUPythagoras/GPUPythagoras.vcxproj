@@ -83,12 +83,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GPUPythagoras.cpp" />
-    <ClCompile Include="pythagoras_frame.cpp" />
     <ClCompile Include="opencl_utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="opencl_utils.h" />
-    <ClInclude Include="pythagoras_frame.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="pythagoras.cl" />

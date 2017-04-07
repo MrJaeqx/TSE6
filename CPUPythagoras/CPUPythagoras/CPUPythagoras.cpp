@@ -28,7 +28,8 @@ void display(void)
 
 	windowBounds = windowBounds * .9;
 
-	printf("Elapsed time to calculate fractal: %f msec\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
+	//printf("Elapsed time to calculate fractal: %f msec\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
+	printf("%f\n", (double)(end.QuadPart - start.QuadPart) / freq.QuadPart * 1000.0);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
