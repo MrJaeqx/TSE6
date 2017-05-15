@@ -16,3 +16,5 @@ OpenCL_3 -> Three different methods to add values on GPU.
 To run:  
   -> First compile freeglut-2.8.1 (freeglut-2.8.1/VisualStudio/2012/freeglut.sln)  
   -> In each solution check PATH to openCL and freeglut dll's and libraries.
+
+![IMADETHIS](https://github.com/MrJaeqx/TSE6-DP/raw/master/img.png)  
